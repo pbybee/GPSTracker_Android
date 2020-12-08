@@ -1,0 +1,6 @@
+include ':app'
+rootProject.name = "GPSTracker"
+
+//include ':ble'
+//project(':ble').projectDir = file('../Android-BLE-Library/ble')
+//project(':ble-common').projectDir = file('../Android-BLE-Library/ble-common')
