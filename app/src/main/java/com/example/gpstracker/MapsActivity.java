@@ -61,11 +61,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        //Don't forget you'll need the
-        //<service android:name="com.example...BluetoothLeService"
-        //in the AndroidManifest
-        service_init();
-
         connectToDevice = (Button) findViewById(R.id.connect);
         connectToDevice.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -90,6 +85,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 return true;
             }
         });
+
+        //Don't forget you'll need the
+        //<service android:name="com.example...BluetoothLeService"
+        //in the AndroidManifest
+        service_init();
     }
 
     /**
@@ -111,30 +111,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng home = new LatLng(47, -122);
         mMarker = mMap.addMarker(new MarkerOptions().position(home).title("Home"));
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(home, 17));
-    }
-
-    public void connectBT() {
-        Set<BluetoothDevice> pairedDevices = mAdapter.getBondedDevices();
-        if(pairedDevices.size()>0) {
-            for (BluetoothDevice device : pairedDevices) {
-                String devicename = device.getName();
-                String macAddress = device.getAddress();
-                //if it's my device we're already paird
-                if (devicename.toLowerCase().contains("posey")) {
-                    mdevice = device;
-                    break;
-                }
-            }
-        }
-
-//        try {
-//            Log.i(TAG, "attempting connection to GATT");
-//            registerReceiver(mGattUpdateReceiver, makeIntentFilter());
-//            Intent gattServiceIntent = new Intent(this, MyBleManager.class);
-//            bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
     }
 
     // Code to manage Service lifecycle.
@@ -164,7 +140,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             if (MyBleManager.ACTION_GATT_DISCONNECTED.equals(action)) {
                 connected = false;
                 connectToDevice.setText("Disconnected");
-                unbindService(mServiceConnection);
             }
             if (MyBleManager.ACTION_DATA_AVAILABLE.equals(action)) {
                 final byte[] txValue = intent.getByteArrayExtra(MyBleManager.EXTRA_DATA);
@@ -206,6 +181,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void service_init() {
+
+//        unbindService(mServiceConnection);
+//        unregisterReceiver(mGattUpdateReceiver);
+        connectToDevice.setText("CONNECTING...");
         Intent bindIntent = new Intent(this, MyBleManager.class);
         bindService(bindIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
         LocalBroadcastManager.getInstance(this).registerReceiver(mGattUpdateReceiver, makeIntentFilter());

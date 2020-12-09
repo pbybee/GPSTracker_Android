@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">GPSTracker</string>
-    <string name="title_activity_maps">Map</string>
+    <string name="app_name">"Where's Posey?"</string>
+    <string name="title_activity_maps">"Where's Posey?"</string>
 </resources>
