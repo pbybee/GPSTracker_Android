@@ -3,6 +3,8 @@ package com.example.gpstracker;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -15,6 +17,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -38,6 +41,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Marker mMarker;
     Button connectToDevice;
     TextView bottomText;
+    private ClipboardManager myClipboard;
+    private ClipData myClip;
     private BluetoothAdapter mAdapter;
     private BluetoothDevice mdevice;
     private MyBleManager mBluetoothManager;
@@ -67,7 +72,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 service_init();
             }
         });
+        myClipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         bottomText = (TextView) findViewById(R.id.textView);
+        bottomText.setLongClickable(true);
+        bottomText.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                String text;
+                text = bottomText.getText().toString();
+
+                myClip = ClipData.newPlainText("text", text);
+                myClipboard.setPrimaryClip(myClip);
+
+                Toast.makeText(getApplicationContext(), "Text Copied",
+                        Toast.LENGTH_SHORT).show();
+
+                return true;
+            }
+        });
     }
 
     /**
