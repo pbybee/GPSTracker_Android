@@ -1,5 +1,6 @@
 package com.example.gpstracker;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -10,6 +11,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -27,10 +30,16 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
-import java.text.DateFormat;
-import java.util.Date;
-import java.util.Set;
+//import org.simpleframework.xml.Serializer;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Set;
+import java.util.TimeZone;
+
+import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -40,7 +49,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private GoogleMap mMap;
     private Marker mMarker;
     Button connectToDevice;
-    TextView bottomText;
+    TextView gpsText;
+    TextView dateText;
     private ClipboardManager myClipboard;
     private ClipData myClip;
     private BluetoothAdapter mAdapter;
@@ -49,6 +59,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private boolean connected = false;
 
     private static final int REQUEST_ENABLE_BT = 1;
+    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +73,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        gpsText = (TextView) findViewById(R.id.textView);
+        dateText = (TextView) findViewById(R.id.textViewDate);
+
         connectToDevice = (Button) findViewById(R.id.connect);
         connectToDevice.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -68,13 +83,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
         myClipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        bottomText = (TextView) findViewById(R.id.textView);
-        bottomText.setLongClickable(true);
-        bottomText.setOnLongClickListener(new View.OnLongClickListener() {
+        gpsText = (TextView) findViewById(R.id.textView);
+        gpsText.setLongClickable(true);
+        gpsText.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
                 String text;
-                text = bottomText.getText().toString();
+                text = gpsText.getText().toString();
 
                 myClip = ClipData.newPlainText("text", text);
                 myClipboard.setPrimaryClip(myClip);
@@ -107,8 +122,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // Add a marker in Sydney and move the camera
         LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-//        locationManager.get
-        LatLng home = new LatLng(47, -122);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    MY_PERMISSIONS_REQUEST_LOCATION);
+            return;
+        }
+        Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        double longitude = location.getLongitude();
+        double latitude = location.getLatitude();
+        LatLng home = new LatLng(latitude, longitude);
         mMarker = mMap.addMarker(new MarkerOptions().position(home).title("Home"));
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(home, 17));
     }
@@ -149,7 +172,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             String text = new String(txValue, "UTF-8");
                             String currentDateTimeString = DateFormat.getTimeInstance().format(new Date());
                             Log.i(TAG, currentDateTimeString+" : "+text);
-                            bottomText.setText(text);
+//                            writeToGPX(text);
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+                            String currentDateandTime = sdf.format(new Date());
+                            dateText.setText(currentDateandTime);
+                            gpsText.setText(text);
+
+                            String[] coordArray = text.split(":");
+                            LatLng newCoords = new LatLng(Double.parseDouble(coordArray[0]),Double.parseDouble(coordArray[1]));
+                            mMarker.setPosition(newCoords);
                         } catch (Exception e) {
                             Log.e(TAG, e.toString());
                         }
@@ -158,6 +189,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
     };
+
+    private void writeToGPX(String coords) {
+        String[] coordArray = coords.split(":");
+
+        //FOR UTC
+        DateFormat df = DateFormat.getTimeInstance();
+        df.setTimeZone(TimeZone.getTimeZone("gmt"));
+        String gmtTime = df.format(new Date());
+
+//        Serializer xmlSerializer = new XMLS
+    }
 
 
     public void setupBlueTooth() {

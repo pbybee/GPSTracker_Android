@@ -35,13 +35,25 @@
 <!--    </RadioGroup>-->
 
     <TextView
-    android:id="@+id/textView"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_gravity="bottom"
-    android:gravity="center_horizontal|center_vertical"
-    android:textSize="30dp"
-    android:textColor="#66000000"
-    android:text="TEST" />
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_gravity="bottom"
+        android:gravity="center_horizontal|center_vertical"
+        android:text="TEST"
+        android:textColor="#66000000"
+        android:textSize="30dp" />
+
+    <TextView
+        android:id="@+id/textViewDate"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="40dp"
+        android:gravity="center_horizontal|center_vertical"
+        android:text="TEST"
+        android:textColor="#66000000"
+        android:textSize="30dp" />
+
 
 </FrameLayout>
