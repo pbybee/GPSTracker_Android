@@ -144,6 +144,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mBluetoothManager.initialize();
             mBluetoothManager.connect(mdevice.getAddress());
         }
+
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
             mBluetoothManager.disconnect();
@@ -166,29 +167,56 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
             if (MyBleManager.ACTION_DATA_AVAILABLE.equals(action)) {
                 final byte[] txValue = intent.getByteArrayExtra(MyBleManager.EXTRA_DATA);
-                runOnUiThread(new Runnable() {
-                    public void run() {
-                        try {
-                            String text = new String(txValue, "UTF-8");
-                            String currentDateTimeString = DateFormat.getTimeInstance().format(new Date());
-                            Log.i(TAG, currentDateTimeString+" : "+text);
-//                            writeToGPX(text);
-                            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
-                            String currentDateandTime = sdf.format(new Date());
-                            dateText.setText(currentDateandTime);
-                            gpsText.setText(text);
-
-                            String[] coordArray = text.split(":");
-                            LatLng newCoords = new LatLng(Double.parseDouble(coordArray[0]),Double.parseDouble(coordArray[1]));
-                            mMarker.setPosition(newCoords);
-                        } catch (Exception e) {
-                            Log.e(TAG, e.toString());
-                        }
-                    }
-                });
+                runOnUiThread(new ReceiveDataThread(context, txValue));
             }
         }
     };
+
+    private class ReceiveDataThread implements Runnable {
+
+        LocationManager lm;
+        Context ctx;
+        final byte[] txValue;
+
+        public ReceiveDataThread(Context context, final byte[] txValue) {
+            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            ctx = context;
+            this.txValue = txValue;
+        }
+        public void run() {
+            try {
+                String text = new String(txValue, "UTF-8");
+                String currentDateTimeString = DateFormat.getTimeInstance().format(new Date());
+                Log.i(TAG, currentDateTimeString + " : " + txValue.length);
+                Log.i(TAG, currentDateTimeString + " : " + text);
+//                            writeToGPX(text);
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+                String currentDateandTime = sdf.format(new Date());
+                dateText.setText(currentDateandTime);
+                gpsText.setText(text);
+
+                String[] coordArray = text.split(":");
+                LatLng newCoords = new LatLng(Double.parseDouble(coordArray[0]), Double.parseDouble(coordArray[1]));
+                if (newCoords.latitude == 0.0) {
+                    if (ActivityCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        return;
+                    }
+                    Location location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                    double longitude = location.getLongitude();
+                    double latitude = location.getLatitude();
+                    newCoords = new LatLng(latitude, longitude);
+                }
+                mMarker.setPosition(newCoords);
+
+                if (!mMap.getProjection().getVisibleRegion().latLngBounds.contains(newCoords)) {
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(newCoords, 17));
+                }
+
+            } catch (Exception e) {
+                Log.e(TAG, e.toString());
+            }
+        }
+    }
 
     private void writeToGPX(String coords) {
         String[] coordArray = coords.split(":");
