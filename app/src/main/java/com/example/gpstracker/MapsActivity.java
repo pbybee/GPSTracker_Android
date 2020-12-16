@@ -48,6 +48,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private GoogleMap mMap;
     private Marker mMarker;
+    private LatLng currentCoords;
     Button connectToDevice;
     TextView gpsText;
     TextView dateText;
@@ -197,17 +198,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                 String[] coordArray = text.split(":");
                 LatLng newCoords = new LatLng(Double.parseDouble(coordArray[0]), Double.parseDouble(coordArray[1]));
-                if (newCoords.latitude == 0.0) {
-                    if (ActivityCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        return;
-                    }
-                    Location location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                    double longitude = location.getLongitude();
-                    double latitude = location.getLatitude();
-                    newCoords = new LatLng(latitude, longitude);
+                if (newCoords.longitude > 0.0) {
+                    currentCoords = newCoords;
                 }
-                mMarker.setPosition(newCoords);
 
+                mMarker.setPosition(currentCoords);
                 if (!mMap.getProjection().getVisibleRegion().latLngBounds.contains(newCoords)) {
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(newCoords, 17));
                 }
