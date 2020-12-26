@@ -1,6 +1,7 @@
 package com.example.gpstracker;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -8,14 +9,18 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.location.Criteria;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -47,8 +52,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private final static String TAG = "WHERES POSEY";
 
     private GoogleMap mMap;
+    private LocationManager locationManager;
     private Marker mMarker;
     private LatLng currentCoords;
+    private LatLng myCoords;
     Button connectToDevice;
     TextView gpsText;
     TextView dateText;
@@ -122,20 +129,61 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
 
         // Add a marker in Sydney and move the camera
-        LocationManager locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     MY_PERMISSIONS_REQUEST_LOCATION);
             return;
         }
-        Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-        double longitude = location.getLongitude();
-        double latitude = location.getLatitude();
-        LatLng home = new LatLng(latitude, longitude);
-        mMarker = mMap.addMarker(new MarkerOptions().position(home).title("Home"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(home, 17));
+
+        mMap.setMyLocationEnabled(true);
+//        Location location = locationManager.getLastKnownLocation(locationManager.GPS_PROVIDER);
+        locationManager.requestLocationUpdates(locationManager.GPS_PROVIDER,
+                2000,
+                10,
+                locationListenerGPS);
+        isLocationEnabled();
+
+//        double longitude = location.getLongitude();
+//        double latitude = location.getLatitude();
+//        LatLng home = new LatLng(latitude, longitude);
+//        mMarker = mMap.addMarker(new MarkerOptions().position(home).title("Posey"));
+//        mMarker.setSnippet("Dog");
+//        myPosition = mMap.addMarker(new MarkerOptions().position(home).title("You"));
+//        myPosition.setSnippet("You");
+//        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(home, 17));
     }
+
+    LocationListener locationListenerGPS=new LocationListener() {
+        @Override
+        public void onLocationChanged(android.location.Location location) {
+            double latitude=location.getLatitude();
+            double longitude=location.getLongitude();
+            LatLng newPos = new LatLng(latitude,longitude);
+            myCoords = new LatLng(latitude,longitude);
+            if (currentCoords != null) {
+                double distance = haversine(myCoords.latitude,myCoords.longitude,currentCoords.latitude,currentCoords.longitude);
+                mMarker.setSnippet(Double.toString(distance)+"m");
+            }
+        }
+
+        @Override
+        public void onStatusChanged(String provider, int status, Bundle extras) {
+
+        }
+
+        @Override
+        public void onProviderEnabled(String provider) {
+
+        }
+
+        @Override
+        public void onProviderDisabled(String provider) {
+
+        }
+    };
 
     // Code to manage Service lifecycle.
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -168,7 +216,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
             if (MyBleManager.ACTION_DATA_AVAILABLE.equals(action)) {
                 final byte[] txValue = intent.getByteArrayExtra(MyBleManager.EXTRA_DATA);
-                runOnUiThread(new ReceiveDataThread(context, txValue));
+                runOnUiThread(new ReceiveDataThread(context, txValue, locationManager));
             }
         }
     };
@@ -179,8 +227,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Context ctx;
         final byte[] txValue;
 
-        public ReceiveDataThread(Context context, final byte[] txValue) {
-            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        public ReceiveDataThread(Context context, final byte[] txValue, final LocationManager locationManager) {
+            LocationManager lm = locationManager;
             ctx = context;
             this.txValue = txValue;
         }
@@ -190,22 +238,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 String currentDateTimeString = DateFormat.getTimeInstance().format(new Date());
                 Log.i(TAG, currentDateTimeString + " : " + txValue.length);
                 Log.i(TAG, currentDateTimeString + " : " + text);
-//                            writeToGPX(text);
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
-                String currentDateandTime = sdf.format(new Date());
-                dateText.setText(currentDateandTime);
-                gpsText.setText(text);
+//                            writeToGPX(text)
 
                 String[] coordArray = text.split(":");
                 LatLng newCoords = new LatLng(Double.parseDouble(coordArray[0]), Double.parseDouble(coordArray[1]));
-                if (newCoords.longitude > 0.0) {
+                if (newCoords.latitude != 0.0) {
                     currentCoords = newCoords;
                 }
 
+                if (mMarker == null) {
+                    mMarker = mMap.addMarker(new MarkerOptions().position(currentCoords).title("Posey"));
+                    mMarker.setSnippet("Dog");
+                }
+
                 mMarker.setPosition(currentCoords);
+                double distance = haversine(myCoords.latitude,myCoords.longitude,currentCoords.latitude,currentCoords.longitude);
+                mMarker.setSnippet(Double.toString(distance)+"m");
                 if (!mMap.getProjection().getVisibleRegion().latLngBounds.contains(newCoords)) {
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(newCoords, 17));
                 }
+
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+                String currentDateandTime = sdf.format(new Date());
+                dateText.setText(currentDateandTime);
+                gpsText.setText(coordArray[0]+" "+coordArray[1]);
 
             } catch (Exception e) {
                 Log.e(TAG, e.toString());
@@ -297,4 +353,44 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return gattIntentFilter;
     }
 
+    private void isLocationEnabled() {
+
+        if(!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+//            AlertDialog.Builder alertDialog=new AlertDialog.Builder(getApplicationContext());
+            AlertDialog.Builder alertDialog=new AlertDialog.Builder(MapsActivity.this);
+
+            alertDialog.setTitle("Enable Location");
+            alertDialog.setMessage("Your locations setting is not enabled. Please enabled it in settings menu.");
+            alertDialog.setPositiveButton("Location Settings", new DialogInterface.OnClickListener(){
+                public void onClick(DialogInterface dialog, int which){
+                    Intent intent=new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                    startActivity(intent);
+                }
+            });
+            alertDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
+                public void onClick(DialogInterface dialog, int which){
+                    dialog.cancel();
+                }
+            });
+            AlertDialog alert=alertDialog.create();
+            alert.show();
+        }
+    }
+
+    /**
+     * Calculates the distance in m between two lat/long points
+     * using the haversine formula
+     */
+    public static double haversine(
+            double lat1, double lng1, double lat2, double lng2) {
+        int r = 6371; // average radius of the earth in km
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                        * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double d = (r * c)*1000;
+        return d;
+    }
 }
